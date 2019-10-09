@@ -17,3 +17,5 @@ Learning Repository- http://archive.ics.uci.edu/ml/index.php
 - 113245_CATANIA_CATANIA_Notebook_html_format__ASCII__555963_1662879520.html: Notebook (html)
 
 - 113245_CATANIA_CATANIA_Report_555963_1706899377.pdf: Report
+
+- ML_coursework-2019.pdf: Coursework description
