@@ -1,0 +1,214 @@
+---
+title: "Marco Catania - R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+# 1. Data Preprocess
+
+## a) Dataframes construction
+
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+
+# Here the path to the dataset has to be changed, to the location on your computer
+
+opts_knit$set(root.dir = "~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data")
+```
+
+```{r}
+# loading files in two separate dataframes: train and test
+
+`1trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/1trn.SSV", quote="\"", comment.char="")
+`2trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/2trn.SSV", quote="\"", comment.char="")
+`3trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/3trn.SSV", quote="\"", comment.char="")
+`4trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/4trn.SSV", quote="\"", comment.char="")
+`5trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/5trn.SSV", quote="\"", comment.char="")
+`6trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/6trn.SSV", quote="\"", comment.char="")
+`7trn` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/7trn.SSV", quote="\"", comment.char="")
+
+`1tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/1tst.SSV", quote="\"", comment.char="")
+`2tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/2tst.SSV", quote="\"", comment.char="")
+`3tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/3tst.SSV", quote="\"", comment.char="")
+`4tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/4tst.SSV", quote="\"", comment.char="")
+`5tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/5tst.SSV", quote="\"", comment.char="")
+`6tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/6tst.SSV", quote="\"", comment.char="")
+`7tst` <- read.table("~/Documents/Uni/ML/Coursework/endoscopy-video-frames-data/7tst.SSV", quote="\"", comment.char="")
+
+train <- rbind(`1trn`, `2trn`, `3trn`, `4trn`, `5trn`, `6trn`, `7trn`)
+test <- rbind(`1tst`, `2tst`, `3tst`, `4tst`, `5tst`, `6tst`, `7tst`)
+
+# Target values converted to [0,1]
+
+train$V17[train[,17]==255] <- 1
+test$V17[test[,17]==255] <- 1
+```
+## b) Data normalization
+
+```{r}
+# normalize data values within range [0,1]
+library(lattice)
+library(ggplot2)
+library(caret)
+
+preprocessParams <- preProcess(train[,1:16], method=c("range"))
+train_transformed <- predict(preprocessParams, train[,1:16])
+preprocessParams <- preProcess(test[,1:16], method=c("range"))
+test_transformed <- predict(preprocessParams, test[,1:16])
+train_transformed$V17 <- train$V17
+test_transformed$V17 <- test$V17
+```
+
+## c) Dataset dimension reduction: PCA
+
+```{r}
+#PCA on train dataset
+
+pr.out=prcomp(subset(train_transformed, select=-c(V17),scale=TRUE))
+pr.out$rotation=-pr.out$rotation
+pr.out$x=-pr.out$x
+pca_out = pr.out$x
+biplot(pr.out,scale=0)
+pr.var=pr.out$sdev^2
+pve=pr.var/sum(pr.var)
+plot(pve,xlab="Principal Component", ylab = "Proportion of variance explained", ylim=c(0,1), type='b')
+plot(cumsum(pve),xlab="Principal Component", ylab = "Cumulative Proportion of variance explained", ylim=c(0,1), type='b')
+
+reduced2train <- subset(pca_out, select=c(PC1,PC2))
+reduced2train <- cbind(reduced2train, target = train_transformed$V17)
+
+```
+```{r}
+#PCA on test dataset
+
+pr.out=prcomp(subset(test_transformed, select=-c(V17),scale=TRUE))
+pr.out$rotation=-pr.out$rotation
+pr.out$x=-pr.out$x
+pca_out = pr.out$x
+biplot(pr.out,scale=0)
+pr.var=pr.out$sdev^2
+pve=pr.var/sum(pr.var)
+plot(pve,xlab="Principal Component", ylab = "Proportion of variance explained", ylim=c(0,1), type='b')
+plot(cumsum(pve),xlab="Principal Component", ylab = "Cumulative Proportion of variance explained", ylim=c(0,1), type='b')
+
+reduced2test <- subset(pca_out, select=c(PC1,PC2))
+reduced2test <- cbind(reduced2test, target = test_transformed$V17)
+```
+
+# 2. Models train and test
+
+## a) Training on unprocessed dataset
+
+```{r}
+library(neuralnet)
+
+nn_unproc=neuralnet(V17~.,data=train, hidden=c(5),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn_unproc,test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, test$V17)
+mean(pred==test$V17)
+```
+
+
+## b) 5 neurons
+```{r}
+nn=neuralnet(target~.,data=reduced2train, hidden=c(5),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+## c) 10 neurons
+
+```{r}
+nn1=neuralnet(target~.,data=reduced2train, hidden=c(10),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn1,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+
+```
+
+## d) 15 neurons
+
+```{r}
+nn2=neuralnet(target~.,data=reduced2train, hidden=c(15),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn2,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+## e) 20 neurons
+
+```{r}
+nn3=neuralnet(target~.,data=reduced2train, hidden=c(20),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn3,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+## f) 25 neurons
+
+```{r}
+nn4=neuralnet(target~.,data=reduced2train, hidden=c(25),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn4,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+## g) 2 layers: 3 and 2 neurons
+
+```{r}
+nn5=neuralnet(target~.,data=reduced2train, hidden=c(3,2),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn5,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+## h) 2 layers: 5 and 5 neurons
+
+```{r}
+nn6=neuralnet(target~.,data=reduced2train, hidden=c(5,5),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn6,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+## i) 2 layers: 8 and 7 neurons
+
+```{r}
+nn7=neuralnet(target~.,data=reduced2train, hidden=c(8,7),act.fct = "logistic", err.fct = "sse", linear.output = FALSE, lifesign = "full", stepmax = 1e+09, algorithm = "rprop+", lifesign.step = 10000)
+
+Predict=compute(nn7,reduced2test)
+prob <- Predict$net.result
+pred <- ifelse(prob>0.5, 1, 0)
+table(pred, reduced2test[,'target'])
+mean(pred==reduced2test[,'target'])
+```
+
+
+
+
