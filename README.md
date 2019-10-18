@@ -1,7 +1,6 @@
 # MachineLearning-Coursework
 Coursework of the Machine Learning module
 
- - Grade: 58 / 100
 
 ## Goal: 
 
@@ -14,9 +13,9 @@ Learning Repository- http://archive.ics.uci.edu/ml/index.php
 
 ## Files:
 
-- 113245_CATANIA_CATANIA_Notebook_html_format__ASCII__555963_1662879520.html: Notebook html (to be downloaded)
+- 113245_CATANIA_CATANIA_Notebook_html_format__ASCII__555963_1662879520.html: Notebook html (must be downloaded)
 
-- 113245_CATANIA_CATANIA_Notebook_Rmd_format__ASCII__555963_1128764061.Rmd: R markdown code (to be downloaded)
+- 113245_CATANIA_CATANIA_Notebook_Rmd_format__ASCII__555963_1128764061.Rmd: R markdown code (must be downloaded)
 
 - 113245_CATANIA_CATANIA_Report_555963_1706899377.pdf: Report
 
